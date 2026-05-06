@@ -1,17 +1,31 @@
-from fastapi import FastAPI
+from fastapi import FastAPI,Depends
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import init_db
+from contextlib import asynccontextmanager
+from app.database import init_db,get_db
 from app.routers import users, articles, favorites
+from app.services.scheduler import scheduler
 
-# Initialize database
-init_db()
+# Startup/Shutdown events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    print("Starting TechHub API...")
+    scheduler.start()
+    yield
+    # Shutdown
+    print("Shutting down TechHub API...")
+    scheduler.stop()
 
-# Create FastAPI app
+# Create FastAPI app with lifespan
 app = FastAPI(
     title="TechHub - Tech News Aggregator",
     description="Aggregate and discover tech news from Hacker News, Dev.to, and Product Hunt",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
+
+# Initialize database
+init_db()
 
 # Add CORS middleware
 app.add_middleware(
@@ -41,6 +55,14 @@ def root():
         "docs": "/docs",
         "docs_redoc": "/redoc"
     }
+
+# New endpoint to manually trigger article fetch
+@app.post("/admin/refresh-articles")
+async def refresh_articles(db = Depends(get_db)):
+    """Manually trigger article refresh"""
+    from app.services.ingest_service import IngestionService
+    result = await IngestionService.ingest_articles(db, limit=50)
+    return result
 
 if __name__ == "__main__":
     import uvicorn
