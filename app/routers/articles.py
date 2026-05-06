@@ -89,3 +89,67 @@ def search_articles(
         "total_pages": total_pages,
         "items": articles
     }
+# Add to app/routers/articles.py
+
+@router.get("/trending/", response_model=PaginatedArticleResponse)
+def get_trending(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """
+    Get trending articles (most upvotes + views in last 7 days)
+    
+    Trending score = upvotes * 2 + view_count
+    """
+    from sqlalchemy import func
+    from datetime import datetime, timedelta
+    
+    last_7_days = datetime.utcnow() - timedelta(days=7)
+    
+    query = db.query(Article).filter(
+        Article.published_at >= last_7_days
+    ).order_by(
+        (Article.upvotes * 2 + Article.view_count).desc()
+    )
+    
+    total = query.count()
+    articles = query.offset(skip).limit(limit).all()
+    total_pages = (total + limit - 1) // limit
+    
+    return {
+        "total": total,
+        "page": skip // limit + 1,
+        "page_size": limit,
+        "total_pages": total_pages,
+        "items": articles
+    }
+
+@router.get("/by-source/{source}", response_model=PaginatedArticleResponse)
+def get_articles_by_source(
+    source: str,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """Get articles filtered by source (hackernews, devto, producthunt)"""
+    valid_sources = ["hackernews", "devto", "producthunt"]
+    
+    if source.lower() not in valid_sources:
+        raise ValueError(f"Invalid source. Must be one of: {', '.join(valid_sources)}")
+    
+    query = db.query(Article).filter(
+        Article.source == source.lower()
+    ).order_by(Article.published_at.desc())
+    
+    total = query.count()
+    articles = query.offset(skip).limit(limit).all()
+    total_pages = (total + limit - 1) // limit
+    
+    return {
+        "total": total,
+        "page": skip // limit + 1,
+        "page_size": limit,
+        "total_pages": total_pages,
+        "items": articles
+    }
