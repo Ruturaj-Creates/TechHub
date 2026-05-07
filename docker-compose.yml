@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: techhub_db
+
+    environment:
+      POSTGRES_USER: techhub_user
+      POSTGRES_PASSWORD: secure_password
+      POSTGRES_DB: techhub_db
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U techhub_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+
+    container_name: techhub_api
+
+    environment:
+      DATABASE_URL: postgresql://techhub_user:secure_password@db:5432/techhub_db
+      ENVIRONMENT: production
+      DEBUG: "False"
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    volumes:
+      - .:/app
+
+volumes:
+  postgres_data:
