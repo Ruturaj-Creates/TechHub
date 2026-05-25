@@ -79,3 +79,12 @@ python -m uvicorn app.main:app --reload
 - ✅ External API integration 
 - ✅ Async/await patterns
 - ✅ Testing 
+
+## Future Improvements
+
+- JWT Authentication
+- Docker support
+- Redis caching
+- AI-based recommendations
+- Rate limiting
+- CI/CD pipeline
